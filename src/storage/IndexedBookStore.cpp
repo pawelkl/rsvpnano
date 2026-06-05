@@ -9,7 +9,8 @@ static_assert(sizeof(IndexedBookStore::ChapterRecord) == 72, "RIDX chapter recor
 
 bool IndexedBookStore::open(const String &indexPath, const String &dataPath,
                             const Header &header) {
-  if (header.magic != kMagic || header.version != kVersion ||
+  const bool supportedVersion = header.version == kVersion || header.version == kVersion + 1;
+  if (header.magic != kMagic || !supportedVersion ||
       header.headerSize != sizeof(Header) || header.recordSize != sizeof(WordRecord) ||
       header.wordCount == 0) {
     return false;
