@@ -241,6 +241,7 @@ constexpr const char *kPrefFocusTimerMinutes = "timer_min";
 constexpr const char *kPrefFocusTimerBreakMinutes = "timer_brk";
 constexpr const char *kPrefFocusTimerLongBreakMinutes = "timer_lbr";
 constexpr const char *kPrefFocusTimerLongBreakInterval = "timer_laf";
+constexpr const char *kPrefFocusTimerLastGenre = "timer_gen";
 constexpr size_t kReaderFontSizeCount = 3;
 constexpr size_t kPhantomBeforeCharTargets[] = {64, 96, 144};
 constexpr size_t kPhantomAfterCharTargets[] = {96, 144, 208};
@@ -344,6 +345,26 @@ int nextCyclicSetting(int value, int minValue, int maxValue, int step = 1) {
     next = minValue;
   }
   return next;
+}
+
+FocusTimer::Genre focusTimerGenreFromSetting(uint8_t value) {
+  switch (static_cast<FocusTimer::Genre>(value)) {
+    case FocusTimer::Genre::Chores:
+      return FocusTimer::Genre::Chores;
+    case FocusTimer::Genre::RsvpNano:
+      return FocusTimer::Genre::RsvpNano;
+    case FocusTimer::Genre::StrengthLabs:
+      return FocusTimer::Genre::StrengthLabs;
+    case FocusTimer::Genre::SelfCare:
+      return FocusTimer::Genre::SelfCare;
+    case FocusTimer::Genre::Other:
+      return FocusTimer::Genre::Other;
+    case FocusTimer::Genre::Pomodoro:
+      return FocusTimer::Genre::Pomodoro;
+    case FocusTimer::Genre::None:
+    default:
+      return FocusTimer::Genre::RsvpNano;
+  }
 }
 
 uint16_t nextReaderWpmSetting(uint16_t value) {
@@ -755,6 +776,9 @@ void App::begin() {
   focusTimerLongBreakInterval_ = static_cast<uint8_t>(clampIntSetting(
       preferences_.getUChar(kPrefFocusTimerLongBreakInterval, kFocusTimerDefaultLongBreakInterval),
       kFocusTimerMinLongBreakInterval, kFocusTimerMaxLongBreakInterval));
+  lastFocusTimerGenre_ = focusTimerGenreFromSetting(
+      preferences_.getUChar(kPrefFocusTimerLastGenre,
+                            static_cast<uint8_t>(lastFocusTimerGenre_)));
   accurateTimeEstimateEnabled_ = true;
   typographyConfig_ = defaultTypographyConfig();
   typographyConfig_.typeface = readerTypefaceFromSetting(
@@ -1181,7 +1205,7 @@ void App::handleBootButton(uint32_t nowMs) {
   if (button_.isHeld() && !bootButtonLongPressHandled_ &&
       button_.heldDurationMs(nowMs) >= kThemeToggleHoldMs) {
     bootButtonLongPressHandled_ = true;
-    cycleThemeMode(nowMs);
+    quickStartLastFocusTimer(nowMs);
     return;
   }
 
@@ -1452,6 +1476,9 @@ void App::reloadRuntimePreferences(uint32_t nowMs, bool rerender) {
   focusTimerLongBreakInterval_ = static_cast<uint8_t>(clampIntSetting(
       preferences_.getUChar(kPrefFocusTimerLongBreakInterval, kFocusTimerDefaultLongBreakInterval),
       kFocusTimerMinLongBreakInterval, kFocusTimerMaxLongBreakInterval));
+  lastFocusTimerGenre_ = focusTimerGenreFromSetting(
+      preferences_.getUChar(kPrefFocusTimerLastGenre,
+                            static_cast<uint8_t>(lastFocusTimerGenre_)));
   accurateTimeEstimateEnabled_ = true;
 
   typographyConfig_ = defaultTypographyConfig();
@@ -2555,6 +2582,9 @@ void App::selectFocusTimerConfigItem(uint32_t nowMs) {
 
   if (focusTimerConfigSelectedIndex_ == kFocusTimerConfigStartIndex) {
     applyFocusTimerDurationSetting();
+    lastFocusTimerGenre_ = focusTimerPendingGenre_;
+    preferences_.putUChar(kPrefFocusTimerLastGenre,
+                          static_cast<uint8_t>(lastFocusTimerGenre_));
     focusTimer_.chooseGenre(focusTimerPendingGenre_, nowMs);
     focusTimerCancelHoldTriggered_ = false;
     menuScreen_ = MenuScreen::FocusTimerSession;
@@ -2589,6 +2619,45 @@ void App::selectFocusTimerConfigItem(uint32_t nowMs) {
   applyFocusTimerDurationSetting();
   rebuildFocusTimerConfigMenuItems();
   renderFocusTimerConfig();
+}
+
+void App::quickStartLastFocusTimer(uint32_t nowMs) {
+  if (state_ == AppState::Booting || state_ == AppState::UsbTransfer ||
+      state_ == AppState::CompanionSync || state_ == AppState::Sleeping ||
+      state_ == AppState::Standby || powerOffStarted_) {
+    return;
+  }
+
+  if (state_ == AppState::Playing) {
+    saveReadingPosition(true);
+  }
+
+  pausedTouch_.active = false;
+  pausedTouchIntent_ = TouchIntent::None;
+  focusTimerCancelHoldTriggered_ = false;
+  focusTimerPendingGenre_ = lastFocusTimerGenre_;
+  focusTimerConfigSelectedIndex_ = kFocusTimerConfigStartIndex;
+  focusTimer_.open();
+  if (!focusTimer_.available()) {
+    menuScreen_ = MenuScreen::FocusTimerSession;
+    if (state_ != AppState::Menu) {
+      setState(AppState::Menu, nowMs);
+    } else {
+      renderFocusTimerSession();
+    }
+    return;
+  }
+  applyFocusTimerDurationSetting();
+  focusTimer_.chooseGenre(lastFocusTimerGenre_, nowMs);
+  menuScreen_ = MenuScreen::FocusTimerSession;
+
+  Serial.printf("[timer] quick start=%s\n", FocusTimer::genreLabel(lastFocusTimerGenre_));
+  if (state_ != AppState::Menu) {
+    setState(AppState::Menu, nowMs);
+    return;
+  }
+
+  renderFocusTimerSession();
 }
 
 void App::moveMenuSelection(int direction) {

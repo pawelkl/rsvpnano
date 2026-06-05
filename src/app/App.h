@@ -232,6 +232,7 @@ class App {
   void openFocusTimerConfig(FocusTimer::Genre genre);
   void selectFocusTimerGenre(uint32_t nowMs);
   void selectFocusTimerConfigItem(uint32_t nowMs);
+  void quickStartLastFocusTimer(uint32_t nowMs);
   void applyFocusTimerDurationSetting();
   void openSettings();
   void selectSettingsItem(uint32_t nowMs);
@@ -528,6 +529,7 @@ class App {
   uint32_t batteryRuntimeMinutesRemaining_ = 0;
   TextEntrySession textEntrySession_;
   FocusTimer::Genre focusTimerPendingGenre_ = FocusTimer::Genre::None;
+  FocusTimer::Genre lastFocusTimerGenre_ = FocusTimer::Genre::RsvpNano;
   uint16_t lastReaderTapX_ = 0;
   uint16_t lastReaderTapY_ = 0;
   bool touchInitialized_ = false;
