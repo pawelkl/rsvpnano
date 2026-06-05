@@ -13,6 +13,7 @@ class FocusTimer {
     StrengthLabs,
     SelfCare,
     Other,
+    Pomodoro,
     None = 0xFF,
   };
 
@@ -34,6 +35,9 @@ class FocusTimer {
   void open();
   void update(uint32_t nowMs);
   void setWorkDurationMs(uint32_t durationMs);
+  void setBreakDurationMs(uint32_t durationMs);
+  void setLongBreakDurationMs(uint32_t durationMs);
+  void setLongBreakInterval(uint8_t workBlocks);
   void chooseGenre(Genre genre, uint32_t nowMs);
   void cancelActiveTimer(uint32_t nowMs);
   void abandon();
@@ -48,7 +52,11 @@ class FocusTimer {
   uint8_t completedTouchBlocks() const;
   uint8_t completedWorkBlocks() const;
   uint8_t completedBreakBlocks() const;
+  bool activeBreakIsLong() const;
+  bool nextBreakIsLong() const;
   bool consumeCompletionCue();
+  bool consumeStartCue();
+  bool consumeManualStopCue();
 
   static const char *genreLabel(Genre genre);
 
@@ -58,6 +66,7 @@ class FocusTimer {
     Touch,
     Work,
     Break,
+    LongBreak,
   };
 
   enum class OrientationState : uint8_t {
@@ -84,6 +93,7 @@ class FocusTimer {
                  OrientationState startOrientation);
   void stopActiveTimer();
   void completeActiveTimer();
+  uint32_t nextBreakDurationMs() const;
   bool timerExpired(uint32_t nowMs) const;
   static bool isShortSide(OrientationState orientation);
   static OrientationState oppositeShortSide(OrientationState orientation);
@@ -107,8 +117,13 @@ class FocusTimer {
   uint32_t timerStartedMs_ = 0;
   uint32_t timerDurationMs_ = 0;
   uint32_t workDurationMs_ = 20UL * 60UL * 1000UL;
+  uint32_t breakDurationMs_ = 5UL * 60UL * 1000UL;
+  uint32_t longBreakDurationMs_ = 15UL * 60UL * 1000UL;
+  uint8_t longBreakInterval_ = 4;
   bool timerRunning_ = false;
+  bool startCuePending_ = false;
   bool completionCuePending_ = false;
+  bool manualStopCuePending_ = false;
   uint8_t completedTouchBlocks_ = 0;
   uint8_t completedWorkBlocks_ = 0;
   uint8_t completedBreakBlocks_ = 0;

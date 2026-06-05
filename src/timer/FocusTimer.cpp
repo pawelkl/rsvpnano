@@ -26,9 +26,12 @@ constexpr uint32_t kTouchStartArmDelayMs = 350;
 constexpr uint32_t kPostTimerFlipGraceMs = 900;
 constexpr uint32_t kFeedbackMs = 900;
 constexpr uint32_t kTouchDurationMs = 2UL * 60UL * 1000UL;
-constexpr uint32_t kBreakDurationMs = 5UL * 60UL * 1000UL;
 constexpr uint32_t kMinWorkDurationMs = 1UL * 60UL * 1000UL;
 constexpr uint32_t kMaxWorkDurationMs = 120UL * 60UL * 1000UL;
+constexpr uint32_t kMinBreakDurationMs = 1UL * 60UL * 1000UL;
+constexpr uint32_t kMaxBreakDurationMs = 120UL * 60UL * 1000UL;
+constexpr uint8_t kMinLongBreakInterval = 2;
+constexpr uint8_t kMaxLongBreakInterval = 12;
 
 constexpr float kSideAxisThreshold = 0.78f;
 constexpr float kCrossAxisLimit = 0.42f;
@@ -82,7 +85,8 @@ void FocusTimer::update(uint32_t nowMs) {
         startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
         transitionTo(State::WorkRunning, nowMs);
       } else if (stableOrientation_ == OrientationState::LongSide) {
-        startMode(TimerMode::Break, nowMs, kBreakDurationMs, OrientationState::LongSide);
+        const TimerMode breakMode = nextBreakIsLong() ? TimerMode::LongBreak : TimerMode::Break;
+        startMode(breakMode, nowMs, nextBreakDurationMs(), OrientationState::LongSide);
         transitionTo(State::BreakRunning, nowMs);
       }
       break;
@@ -103,7 +107,8 @@ void FocusTimer::update(uint32_t nowMs) {
         startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
         transitionTo(State::WorkRunning, nowMs);
       } else if (stableOrientation_ == OrientationState::LongSide) {
-        startMode(TimerMode::Break, nowMs, kBreakDurationMs, OrientationState::LongSide);
+        const TimerMode breakMode = nextBreakIsLong() ? TimerMode::LongBreak : TimerMode::Break;
+        startMode(breakMode, nowMs, nextBreakDurationMs(), OrientationState::LongSide);
         transitionTo(State::BreakRunning, nowMs);
       }
       break;
@@ -161,6 +166,36 @@ void FocusTimer::setWorkDurationMs(uint32_t durationMs) {
   workDurationMs_ = durationMs;
 }
 
+void FocusTimer::setBreakDurationMs(uint32_t durationMs) {
+  if (durationMs < kMinBreakDurationMs) {
+    durationMs = kMinBreakDurationMs;
+  }
+  if (durationMs > kMaxBreakDurationMs) {
+    durationMs = kMaxBreakDurationMs;
+  }
+  breakDurationMs_ = durationMs;
+}
+
+void FocusTimer::setLongBreakDurationMs(uint32_t durationMs) {
+  if (durationMs < kMinBreakDurationMs) {
+    durationMs = kMinBreakDurationMs;
+  }
+  if (durationMs > kMaxBreakDurationMs) {
+    durationMs = kMaxBreakDurationMs;
+  }
+  longBreakDurationMs_ = durationMs;
+}
+
+void FocusTimer::setLongBreakInterval(uint8_t workBlocks) {
+  if (workBlocks < kMinLongBreakInterval) {
+    workBlocks = kMinLongBreakInterval;
+  }
+  if (workBlocks > kMaxLongBreakInterval) {
+    workBlocks = kMaxLongBreakInterval;
+  }
+  longBreakInterval_ = workBlocks;
+}
+
 void FocusTimer::cancelActiveTimer(uint32_t nowMs) {
   if (!timerRunning_) {
     return;
@@ -169,6 +204,7 @@ void FocusTimer::cancelActiveTimer(uint32_t nowMs) {
   stopActiveTimer();
   resetOrientationStability();
   feedbackStartedMs_ = nowMs;
+  manualStopCuePending_ = true;
   transitionTo(State::Cancelled, nowMs);
 }
 
@@ -238,9 +274,28 @@ uint8_t FocusTimer::completedWorkBlocks() const { return completedWorkBlocks_; }
 
 uint8_t FocusTimer::completedBreakBlocks() const { return completedBreakBlocks_; }
 
+bool FocusTimer::activeBreakIsLong() const { return activeMode_ == TimerMode::LongBreak; }
+
+bool FocusTimer::nextBreakIsLong() const {
+  return genre_ == Genre::Pomodoro && longBreakInterval_ > 0 &&
+         completedWorkBlocks_ > 0 && (completedWorkBlocks_ % longBreakInterval_) == 0;
+}
+
 bool FocusTimer::consumeCompletionCue() {
   const bool pending = completionCuePending_;
   completionCuePending_ = false;
+  return pending;
+}
+
+bool FocusTimer::consumeStartCue() {
+  const bool pending = startCuePending_;
+  startCuePending_ = false;
+  return pending;
+}
+
+bool FocusTimer::consumeManualStopCue() {
+  const bool pending = manualStopCuePending_;
+  manualStopCuePending_ = false;
   return pending;
 }
 
@@ -256,6 +311,8 @@ const char *FocusTimer::genreLabel(Genre genre) {
       return "Self Care";
     case Genre::Other:
       return "Other";
+    case Genre::Pomodoro:
+      return "Pomodoro";
     case Genre::None:
     default:
       return "";
@@ -469,7 +526,9 @@ void FocusTimer::clearSession() {
   timerDurationMs_ = 0;
   timerRunning_ = false;
   feedbackStartedMs_ = 0;
+  startCuePending_ = false;
   completionCuePending_ = false;
+  manualStopCuePending_ = false;
   completedTouchBlocks_ = 0;
   completedWorkBlocks_ = 0;
   completedBreakBlocks_ = 0;
@@ -482,6 +541,7 @@ void FocusTimer::startMode(TimerMode mode, uint32_t nowMs, uint32_t durationMs,
   timerStartedMs_ = nowMs;
   timerDurationMs_ = durationMs;
   timerRunning_ = true;
+  startCuePending_ = true;
 
   if (isShortSide(startOrientation)) {
     lastShortSide_ = startOrientation;
@@ -510,6 +570,7 @@ void FocusTimer::completeActiveTimer() {
       ++completedWorkBlocks_;
       break;
     case TimerMode::Break:
+    case TimerMode::LongBreak:
       ++completedBreakBlocks_;
       break;
     case TimerMode::None:
@@ -523,6 +584,10 @@ void FocusTimer::completeActiveTimer() {
   timerStartedMs_ = 0;
   timerDurationMs_ = 0;
   completionCuePending_ = true;
+}
+
+uint32_t FocusTimer::nextBreakDurationMs() const {
+  return nextBreakIsLong() ? longBreakDurationMs_ : breakDurationMs_;
 }
 
 bool FocusTimer::timerExpired(uint32_t nowMs) const {

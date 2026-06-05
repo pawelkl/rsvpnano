@@ -92,6 +92,7 @@ class App {
     SdCardRepairConfirm,
     UpdateConfirm,
     FocusTimerGenres,
+    FocusTimerConfig,
     FocusTimerSession,
   };
 
@@ -227,7 +228,10 @@ class App {
   void updateFocusTimer(uint32_t nowMs);
   void resetFocusTimer();
   void rebuildFocusTimerGenreMenuItems();
+  void rebuildFocusTimerConfigMenuItems();
+  void openFocusTimerConfig(FocusTimer::Genre genre);
   void selectFocusTimerGenre(uint32_t nowMs);
+  void selectFocusTimerConfigItem(uint32_t nowMs);
   void applyFocusTimerDurationSetting();
   void openSettings();
   void selectSettingsItem(uint32_t nowMs);
@@ -339,6 +343,7 @@ class App {
   void renderSdCardRepairConfirm();
   void renderUpdateConfirm();
   void renderFocusTimerGenres();
+  void renderFocusTimerConfig();
   void renderFocusTimerSession();
   void renderActiveReader(uint32_t nowMs);
   bool updateChapterTransition(uint32_t nowMs);
@@ -404,6 +409,9 @@ class App {
   String formatFocusTimerRemaining(uint32_t nowMs) const;
   String focusTimerCountsLabel() const;
   String focusTimerDurationLabel() const;
+  String focusTimerBreakDurationLabel() const;
+  String focusTimerLongBreakDurationLabel() const;
+  String focusTimerLongBreakIntervalLabel() const;
   void playFocusTimerCompletionCue();
 
   AppState state_ = AppState::Booting;
@@ -457,9 +465,13 @@ class App {
   size_t sdCardRepairConfirmSelectedIndex_ = 0;
   size_t updateConfirmSelectedIndex_ = 0;
   size_t focusTimerGenreSelectedIndex_ = 0;
+  size_t focusTimerConfigSelectedIndex_ = 1;
   uint8_t brightnessLevelIndex_ = 4;
   uint8_t readerFontSizeIndex_ = 0;
   uint16_t focusTimerMinutes_ = 20;
+  uint16_t focusTimerBreakMinutes_ = 5;
+  uint16_t focusTimerLongBreakMinutes_ = 15;
+  uint8_t focusTimerLongBreakInterval_ = 4;
   uint16_t pacingLongWordDelayMs_ = 200;
   uint16_t pacingLongWordMultiplierPercent_ = 150;
   uint16_t pacingComplexWordDelayMs_ = 200;
@@ -473,6 +485,7 @@ class App {
   QueueHandle_t otaCheckQueue_ = nullptr;
   std::vector<String> settingsMenuItems_;
   std::vector<String> focusTimerGenreMenuItems_;
+  std::vector<String> focusTimerConfigMenuItems_;
   std::vector<DisplayManager::LibraryItem> wifiNetworkMenuItems_;
   std::vector<DisplayManager::LibraryItem> bookMenuItems_;
   std::vector<size_t> bookPickerBookIndices_;
@@ -514,6 +527,7 @@ class App {
   uint8_t batteryRuntimeAnchorPercent_ = 0;
   uint32_t batteryRuntimeMinutesRemaining_ = 0;
   TextEntrySession textEntrySession_;
+  FocusTimer::Genre focusTimerPendingGenre_ = FocusTimer::Genre::None;
   uint16_t lastReaderTapX_ = 0;
   uint16_t lastReaderTapY_ = 0;
   bool touchInitialized_ = false;

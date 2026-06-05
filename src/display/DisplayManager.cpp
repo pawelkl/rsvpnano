@@ -3179,8 +3179,6 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
                                             const String &timer, const String &instruction,
                                             const String &footer, int progressPercent,
                                             bool breakAccent) {
-  (void)genre;
-  (void)footer;
   progressPercent = std::max(-1, std::min(100, progressPercent));
   const int virtualWidth = logicalWidth();
   const int virtualHeight = logicalHeight();
@@ -3375,6 +3373,16 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
     return std::max(blockX, blockX + ((blockWidth - textWidth) / 2));
   };
 
+  auto drawCenteredTiny = [&](const String &text, int y, uint16_t color, int scale) {
+    if (text.isEmpty()) {
+      return;
+    }
+    while (scale > 1 && measureTinyTextWidth(text, scale) > contentWidth) {
+      --scale;
+    }
+    drawTinyTextAt(text, centeredXForTiny(text, scale), y, color, scale);
+  };
+
   const bool portraitFocusLayout = portrait && !breakAccent && (mode == "BEGIN" || mode == "WORK");
   int titleScale = portrait ? 5 : 7;
   if (portraitFocusLayout && timerRunning) {
@@ -3404,8 +3412,13 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
     const int titleX = centeredXForTiny(mode, titleScale);
     const int timerX = centeredXForTiny(timer, timerScale);
 
+    drawCenteredTiny(genre, portrait ? 30 : 8, instructionColor, portrait ? 2 : 2);
     drawTinyTextAt(mode, titleX, titleY, baseTextColor, titleScale);
     drawTinyTextAt(timer, timerX, timerY, baseTextColor, timerScale);
+    drawCenteredTiny(instruction, portrait ? (virtualHeight - 86) : (virtualHeight - 42),
+                     instructionColor, portrait ? 2 : 2);
+    drawCenteredTiny(footer, portrait ? (virtualHeight - 48) : (virtualHeight - 22),
+                     instructionColor, 2);
 
     if (fillWidth > 0 && fillHeight > 0) {
       drawTinyTextAtClipped(mode, titleX, titleY, inverseTextColor, titleScale, fillX, fillY,
@@ -3414,14 +3427,14 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
                             fillWidth, fillHeight);
     }
   } else {
-    int titleY = portrait ? 176 : 42;
+    int titleY = portrait ? (timer.isEmpty() ? 176 : 96) : (timer.isEmpty() ? 42 : 18);
     int dividerY = 0;
     int instructionScale = portrait ? 2 : 3;
     int instructionBlockWidth = contentWidth;
     int instructionBlockX = contentX;
 
     if (portraitFocusLayout) {
-      titleY = 126;
+      titleY = timer.isEmpty() ? 126 : 86;
       instructionScale = 2;
       instructionBlockWidth = std::max(96, contentWidth - 18);
       instructionBlockX = contentX + ((contentWidth - instructionBlockWidth) / 2);
@@ -3432,15 +3445,28 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
       fillVirtualRect(dividerX, dividerY, dividerWidth, 2, instructionColor);
     }
 
+    drawCenteredTiny(genre, portrait ? 28 : 6, instructionColor, 2);
     drawTinyTextAt(mode, centeredXForTiny(mode, titleScale), titleY, baseTextColor, titleScale);
+    int instructionY = titleY + (kTinyGlyphHeight * titleScale) + (portrait ? 42 : 28);
+
+    if (!timer.isEmpty()) {
+      int timerScale = portrait ? 4 : 5;
+      while (timerScale > 1 && measureTinyTextWidth(timer, timerScale) > contentWidth) {
+        --timerScale;
+      }
+      const int timerY = portrait ? (titleY + 128) : (titleY + 58);
+      drawTinyTextAt(timer, centeredXForTiny(timer, timerScale), timerY, baseTextColor,
+                     timerScale);
+      instructionY = timerY + (kTinyGlyphHeight * timerScale) + (portrait ? 34 : 18);
+    }
 
     if (!instruction.isEmpty()) {
       const std::vector<String> lines =
           wrapTinyLines(instruction, instructionBlockWidth, instructionScale);
       const int lineHeight = (kTinyGlyphHeight * instructionScale) + instructionScale + 4;
-      int y = titleY + (kTinyGlyphHeight * titleScale) + (portrait ? 42 : 28);
+      int y = instructionY;
       if (portraitFocusLayout) {
-        y = dividerY + 66;
+        y = timer.isEmpty() ? dividerY + 66 : instructionY;
       }
       for (const String &line : lines) {
         drawTinyTextAt(line,
@@ -3450,6 +3476,8 @@ void DisplayManager::renderFocusTimerScreen(const String &mode, const String &ge
         y += lineHeight;
       }
     }
+    drawCenteredTiny(footer, portrait ? (virtualHeight - 46) : (virtualHeight - 22),
+                     instructionColor, 2);
   }
 
   drawBatteryBadge(virtualWidth, virtualHeight);
