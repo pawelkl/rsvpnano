@@ -12,6 +12,7 @@
 #include "board/BoardConfig.h"
 #include "storage/EpubConverter.h"
 #include "text/LatinText.h"
+#include "text/WordGlue.h"
 
 #ifndef RSVP_ON_DEVICE_EPUB_CONVERSION
 #define RSVP_ON_DEVICE_EPUB_CONVERSION 0
@@ -126,6 +127,18 @@ bool isHyphenToken(const String &token) {
   }
   for (size_t i = 0; i < token.length(); ++i) {
     if (token[i] != '-') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isQuoteToken(const String &token) {
+  if (token.isEmpty()) {
+    return false;
+  }
+  for (size_t i = 0; i < token.length(); ++i) {
+    if (token[i] != '"' && token[i] != '\'') {
       return false;
     }
   }
@@ -1273,7 +1286,7 @@ String normalizeDisplayText(const String &text, ParseStats *stats = nullptr) {
 
 template <typename PushToken, typename WordCount>
 bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount wordCount,
-                              ParseStats *stats) {
+                              ParseStats *stats, bool joinLeadingHyphenWithNextWord) {
   const String normalizedLine = normalizeDisplayText(line, stats);
   String currentWord;
   String pendingToken;
@@ -1291,6 +1304,20 @@ bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount
     return !reachedBookWordLimit(wordCount());
   };
 
+  auto finishWordToken = [&](const String &token) -> bool {
+    if (pendingToken == "\"" || pendingToken == "'" ||
+        (joinLeadingHyphenWithNextWord && pendingToken == "-")) {
+      pendingToken += token;
+      return true;
+    }
+
+    if (!flushPending()) {
+      return false;
+    }
+    pendingToken = token;
+    return true;
+  };
+
   auto finishToken = [&](String token) -> bool {
     trimAsciiWhitespace(token);
     if (token.isEmpty()) {
@@ -1304,7 +1331,20 @@ bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount
       return true;
     }
 
+    if (isQuoteToken(token)) {
+      if (pendingToken.isEmpty()) {
+        pendingToken = token;
+      } else {
+        pendingToken += token;
+      }
+      return true;
+    }
+
     if (isHyphenToken(token)) {
+      if (joinLeadingHyphenWithNextWord && pendingToken.isEmpty()) {
+        pendingToken = "-";
+        return true;
+      }
       if (!flushPending()) {
         return false;
       }
@@ -1314,11 +1354,13 @@ bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount
       return !reachedBookWordLimit(wordCount());
     }
 
-    if (!flushPending()) {
-      return false;
+    String first;
+    String second;
+    if (WordGlue::splitGluedToken(token, first, second)) {
+      return finishWordToken(first) && finishWordToken(second);
     }
-    pendingToken = token;
-    return true;
+
+    return finishWordToken(token);
   };
 
   auto flushCurrent = [&]() -> bool {
@@ -1480,7 +1522,7 @@ String directiveValue(const String &line, const char *directive) {
 bool appendLineWords(const String &line, std::vector<String> &words, ParseStats *stats) {
   return appendTokenizedLineWords(
       line, [&](const String &token) { return pushCleanWord(token, words, stats); },
-      [&]() { return words.size(); }, stats);
+      [&]() { return words.size(); }, stats, false);
 }
 
 bool processBookLine(const String &line, BookContent &book, bool &paragraphPending,
@@ -1735,7 +1777,8 @@ uint32_t sourceFingerprint(const String &path, uint32_t sourceSize) {
   return fingerprint;
 }
 
-bool readIndexHeader(const String &path, IndexedBookStore::Header &header) {
+bool readIndexHeader(const String &path, IndexedBookStore::Header &header,
+                     uint32_t expectedVersion) {
   File file = SD_MMC.open(indexedIndexPathFor(path), FILE_READ);
   if (!file || file.isDirectory()) {
     if (file) {
@@ -1747,7 +1790,7 @@ bool readIndexHeader(const String &path, IndexedBookStore::Header &header) {
   const bool ok = readExact(file, &header, sizeof(header));
   file.close();
   return ok && header.magic == IndexedBookStore::kMagic &&
-         header.version == IndexedBookStore::kVersion &&
+         header.version == expectedVersion &&
          header.headerSize == sizeof(IndexedBookStore::Header) &&
          header.recordSize == sizeof(IndexedBookStore::WordRecord) &&
          header.recordsOffset >= sizeof(IndexedBookStore::Header);
@@ -1760,6 +1803,7 @@ struct IndexedBuildContext {
   uint32_t wordCount = 0;
   uint32_t dataSize = 0;
   bool failed = false;
+  bool joinLeadingHyphenWithNextWord = false;
   const char *failure = "";
 };
 
@@ -1850,7 +1894,8 @@ bool pushIndexedWord(String token, IndexedBuildContext &context, ParseStats *sta
 bool appendIndexedLineWords(const String &line, IndexedBuildContext &context, ParseStats *stats) {
   return appendTokenizedLineWords(
       line, [&](const String &token) { return pushIndexedWord(token, context, stats); },
-      [&]() { return static_cast<size_t>(context.wordCount); }, stats);
+      [&]() { return static_cast<size_t>(context.wordCount); }, stats,
+      context.joinLeadingHyphenWithNextWord);
 }
 
 bool processIndexedBookLine(const String &line, IndexedBuildContext &context,
@@ -1930,6 +1975,10 @@ bool processIndexedRsvpLine(const String &line, IndexedBuildContext &context,
 void StorageManager::setStatusCallback(StatusCallback callback, void *context) {
   statusCallback_ = callback;
   statusContext_ = context;
+}
+
+void StorageManager::setJoinLeadingHyphenWithNextWord(bool enabled) {
+  joinLeadingHyphenWithNextWord_ = enabled;
 }
 
 void StorageManager::notifyStatus(const char *title, const char *line1, const char *line2,
@@ -2218,15 +2267,21 @@ bool StorageManager::loadBookContent(size_t index, BookContent &book, String *lo
   return false;
 }
 
+uint32_t StorageManager::expectedIndexedBookVersion() const {
+  return IndexedBookStore::kVersion + (joinLeadingHyphenWithNextWord_ ? 1UL : 0UL);
+}
+
 bool StorageManager::readIndexedMetadata(const String &path, BookMetadata &metadata,
                                          IndexedBookStore::Header *headerOut) {
   metadata.clear();
 
   IndexedBookStore::Header header;
-  if (!readIndexHeader(path, header)) {
+  const uint32_t expectedVersion = expectedIndexedBookVersion();
+  if (!readIndexHeader(path, header, expectedVersion)) {
     if (fileExistsAndHasBytes(indexedIndexPathFor(path))) {
-      Serial.printf("[storage-index] invalid index header: %s\n",
-                    indexedIndexPathFor(path).c_str());
+      Serial.printf("[storage-index] invalid index header: %s expectedVersion=%lu\n",
+                    indexedIndexPathFor(path).c_str(),
+                    static_cast<unsigned long>(expectedVersion));
     }
     return false;
   }
@@ -2427,6 +2482,7 @@ bool StorageManager::buildIndexedBook(const String &path, BookMetadata &metadata
   context.indexFile = &indexFile;
   context.dataFile = &dataFile;
   context.metadata = &metadata;
+  context.joinLeadingHyphenWithNextWord = joinLeadingHyphenWithNextWord_;
 
   String line;
   line.reserve(256);
@@ -2526,7 +2582,7 @@ bool StorageManager::buildIndexedBook(const String &path, BookMetadata &metadata
   }
 
   header.magic = IndexedBookStore::kMagic;
-  header.version = IndexedBookStore::kVersion;
+  header.version = expectedIndexedBookVersion();
   header.headerSize = sizeof(IndexedBookStore::Header);
   header.recordSize = sizeof(IndexedBookStore::WordRecord);
   header.sourceSize = static_cast<uint32_t>(sourceBytes);

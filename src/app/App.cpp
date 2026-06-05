@@ -174,7 +174,8 @@ constexpr size_t kSettingsPacingWpmIndex = 3;
 constexpr size_t kSettingsPacingLongWordsIndex = 4;
 constexpr size_t kSettingsPacingComplexityIndex = 5;
 constexpr size_t kSettingsPacingPunctuationIndex = 6;
-constexpr size_t kSettingsPacingResetIndex = 7;
+constexpr size_t kSettingsPacingJoinHyphenIndex = 7;
+constexpr size_t kSettingsPacingResetIndex = 8;
 constexpr size_t kWifiSettingsNetworkIndex = 1;
 constexpr size_t kWifiSettingsChooseIndex = 2;
 constexpr size_t kWifiSettingsAutoUpdateIndex = 3;
@@ -214,6 +215,7 @@ constexpr const char *kPrefLegacyPacingPunctuation = "pace_pnc";
 constexpr const char *kPrefPacingLongMs = "pace_lms";
 constexpr const char *kPrefPacingComplexMs = "pace_cms";
 constexpr const char *kPrefPacingPunctuationMs = "pace_pms";
+constexpr const char *kPrefJoinLeadingHyphen = "join_dash";
 constexpr const char *kPrefPauseMode = "pause_md";
 constexpr const char *kPrefAccurateTime = "time_est_a";
 constexpr const char *kPrefTypographyTracking = "type_trk";
@@ -701,6 +703,8 @@ void App::begin() {
       loadPacingDelayMs(preferences_, kPrefPacingComplexMs, kPrefLegacyPacingComplex);
   pacingPunctuationDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingPunctuationMs, kPrefLegacyPacingPunctuation);
+  joinLeadingHyphenWithNextWord_ =
+      preferences_.getBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
   accurateTimeEstimateEnabled_ = true;
   typographyConfig_ = defaultTypographyConfig();
   typographyConfig_.typeface = readerTypefaceFromSetting(
@@ -1372,6 +1376,8 @@ void App::reloadRuntimePreferences(uint32_t nowMs, bool rerender) {
       loadPacingDelayMs(preferences_, kPrefPacingComplexMs, kPrefLegacyPacingComplex);
   pacingPunctuationDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingPunctuationMs, kPrefLegacyPacingPunctuation);
+  joinLeadingHyphenWithNextWord_ =
+      preferences_.getBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
   accurateTimeEstimateEnabled_ = true;
 
   typographyConfig_ = defaultTypographyConfig();
@@ -2826,13 +2832,22 @@ void App::selectSettingsItem(uint32_t nowMs) {
       preferences_.putUShort(kPrefPacingPunctuationMs, pacingPunctuationDelayMs_);
       pacingConfigChanged = true;
       break;
+    case kSettingsPacingJoinHyphenIndex:
+      joinLeadingHyphenWithNextWord_ = !joinLeadingHyphenWithNextWord_;
+      preferences_.putBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
+      applyPacingSettings();
+      rebuildSettingsMenuItems();
+      renderSettings();
+      return;
     case kSettingsPacingResetIndex:
       pacingLongWordDelayMs_ = kDefaultPacingDelayMs;
       pacingComplexWordDelayMs_ = kDefaultPacingDelayMs;
       pacingPunctuationDelayMs_ = kDefaultPacingDelayMs;
+      joinLeadingHyphenWithNextWord_ = false;
       preferences_.putUShort(kPrefPacingLongMs, pacingLongWordDelayMs_);
       preferences_.putUShort(kPrefPacingComplexMs, pacingComplexWordDelayMs_);
       preferences_.putUShort(kPrefPacingPunctuationMs, pacingPunctuationDelayMs_);
+      preferences_.putBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
       pacingConfigChanged = true;
       break;
     default:
@@ -3395,6 +3410,8 @@ void App::rebuildSettingsMenuItems() {
                                  pacingDelayLabel(pacingComplexWordDelayMs_));
     settingsMenuItems_.push_back(uiText(UiText::Punctuation) + ": " +
                                  pacingDelayLabel(pacingPunctuationDelayMs_));
+    settingsMenuItems_.push_back("Join leading dash: " +
+                                 onOffLabel(joinLeadingHyphenWithNextWord_));
     settingsMenuItems_.push_back(uiText(UiText::ResetPacing));
   } else if (menuScreen_ == MenuScreen::WifiSettings) {
     settingsMenuItems_.push_back(uiText(UiText::Back));
@@ -3416,11 +3433,13 @@ void App::applyPacingSettings() {
   pacingConfig.complexWordDelayMs = pacingComplexWordDelayMs_;
   pacingConfig.punctuationDelayMs = pacingPunctuationDelayMs_;
   reader_.setPacingConfig(pacingConfig);
+  storage_.setJoinLeadingHyphenWithNextWord(joinLeadingHyphenWithNextWord_);
 
-  Serial.printf("[settings] pacing long=%u ms complexity=%u ms punctuation=%u ms\n",
+  Serial.printf("[settings] pacing long=%u ms complexity=%u ms punctuation=%u ms joinDash=%u\n",
                 static_cast<unsigned int>(pacingLongWordDelayMs_),
                 static_cast<unsigned int>(pacingComplexWordDelayMs_),
-                static_cast<unsigned int>(pacingPunctuationDelayMs_));
+                static_cast<unsigned int>(pacingPunctuationDelayMs_),
+                joinLeadingHyphenWithNextWord_ ? 1U : 0U);
   if (state_ == AppState::Menu && menuScreen_ == MenuScreen::SettingsPacing) {
     pacingCacheDirty_ = true;
   } else {

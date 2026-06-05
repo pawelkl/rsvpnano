@@ -32,6 +32,7 @@ class StorageManager {
   };
 
   void setStatusCallback(StatusCallback callback, void *context);
+  void setJoinLeadingHyphenWithNextWord(bool enabled);
   bool begin();
   void end();
   void listBooks();
@@ -56,6 +57,7 @@ class StorageManager {
   bool ensureIndexedBook(const String &path, BookMetadata &metadata, bool rsvpFormat,
                          bool allowIndexBuild);
   bool buildIndexedBook(const String &path, BookMetadata &metadata, bool rsvpFormat);
+  uint32_t expectedIndexedBookVersion() const;
   bool readIndexedMetadata(const String &path, BookMetadata &metadata,
                            IndexedBookStore::Header *header = nullptr);
   bool parseFile(File &file, BookContent &book, bool rsvpFormat);
@@ -70,6 +72,7 @@ class StorageManager {
   bool listedOnce_ = false;
   StatusCallback statusCallback_ = nullptr;
   void *statusContext_ = nullptr;
+  bool joinLeadingHyphenWithNextWord_ = false;
   std::vector<String> bookPaths_;
   std::vector<String> bookTitles_;
   std::vector<String> bookAuthors_;

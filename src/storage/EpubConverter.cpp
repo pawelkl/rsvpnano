@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "text/LatinText.h"
+#include "text/WordGlue.h"
 
 namespace {
 
@@ -1076,6 +1077,18 @@ bool isHyphenToken(const String &token) {
   return true;
 }
 
+bool isQuoteToken(const String &token) {
+  if (token.isEmpty()) {
+    return false;
+  }
+  for (size_t i = 0; i < token.length(); ++i) {
+    if (token[i] != '"' && token[i] != '\'') {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool isEllipsisToken(const String &token) {
   if (token.length() < 3) {
     return false;
@@ -1175,6 +1188,19 @@ bool writeBodyLine(File &output, const String &line, size_t &wordCount, size_t m
     return ok;
   };
 
+  auto finishWordToken = [&](const String &value) -> bool {
+    if (pendingToken == "\"" || pendingToken == "'") {
+      pendingToken += value;
+      return true;
+    }
+
+    if (!flushPending()) {
+      return false;
+    }
+    pendingToken = value;
+    return true;
+  };
+
   auto finishToken = [&](String value) -> bool {
     value.trim();
     if (value.isEmpty()) {
@@ -1188,15 +1214,26 @@ bool writeBodyLine(File &output, const String &line, size_t &wordCount, size_t m
       return true;
     }
 
+    if (isQuoteToken(value)) {
+      if (pendingToken.isEmpty()) {
+        pendingToken = value;
+      } else {
+        pendingToken += value;
+      }
+      return true;
+    }
+
     if (isHyphenToken(value)) {
       return flushPending() && writeToken("-");
     }
 
-    if (!flushPending()) {
-      return false;
+    String first;
+    String second;
+    if (WordGlue::splitGluedToken(value, first, second)) {
+      return finishWordToken(first) && finishWordToken(second);
     }
-    pendingToken = value;
-    return true;
+
+    return finishWordToken(value);
   };
 
   auto flushToken = [&]() -> bool {

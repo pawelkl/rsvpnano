@@ -458,6 +458,7 @@ class App {
   uint16_t pacingLongWordDelayMs_ = 200;
   uint16_t pacingComplexWordDelayMs_ = 200;
   uint16_t pacingPunctuationDelayMs_ = 200;
+  bool joinLeadingHyphenWithNextWord_ = false;
   size_t typographyTuningSelectedIndex_ = 1;
   size_t typographyPreviewSampleIndex_ = 0;
   MenuScreen menuScreen_ = MenuScreen::Main;

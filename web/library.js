@@ -47,6 +47,23 @@ const BLOCK_TAGS = new Set([
 
 const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
 const SKIP_TAGS = new Set(["head", "math", "nav", "script", "style", "svg"]);
+const WORD_GLUE_LEXICON = new Set([
+  "a", "am", "an", "and", "are", "as", "at", "be", "but", "by", "do", "for", "from", "had",
+  "has", "he", "her", "his", "i", "if", "in", "is", "it", "me", "my", "no", "not", "of",
+  "on", "or", "she", "so", "that", "the", "to", "was", "we", "were", "with", "you",
+  "al", "como", "con", "de", "del", "el", "en", "es", "la", "las", "lo", "los", "mi",
+  "por", "que", "se", "si", "su", "te", "un", "una", "y",
+  "au", "aux", "ce", "ces", "dans", "des", "du", "elle", "est", "et", "il", "je", "le",
+  "les", "ma", "mais", "ne", "nous", "pas", "pour", "qui", "son", "sur", "tu", "une",
+  "vous",
+  "aber", "als", "auf", "aus", "das", "dem", "den", "der", "die", "ein", "eine", "er",
+  "es", "ich", "im", "ist", "mit", "nicht", "sie", "und", "von", "war", "zu",
+  "ai", "are", "ca", "cu", "din", "e", "ea", "ei", "era", "este", "eu", "mai", "ma",
+  "nu", "o", "pe", "sa",
+  "ale", "bez", "bo", "by", "byl", "byla", "bylo", "co", "czy", "dla", "go", "ja",
+  "jak", "je", "jej", "jego", "jest", "juz", "mnie", "na", "nie", "od", "ona", "po",
+  "pod", "przez", "tak", "tego", "ten", "tym", "we", "za", "ze",
+]);
 const ASCII_REPLACEMENTS = {
   "\u00A0": " ",
   "\u1680": " ",
@@ -1423,7 +1440,40 @@ function iterCleanWords(text, mode) {
 
   return cleaned
     .split(/\s+/)
-    .filter((token) => token && /[\p{L}\p{N}]/u.test(token));
+    .filter((token) => token && /[\p{L}\p{N}]/u.test(token))
+    .flatMap(splitGluedWord);
+}
+
+function splitGluedWord(token) {
+  const folded = foldLexiconWord(token);
+  if (!folded || folded.length < 5 || folded.length > 18 || folded.length !== Array.from(token).length) {
+    return [token];
+  }
+
+  for (let split = 2; split + 2 <= folded.length; split += 1) {
+    const left = folded.slice(0, split);
+    const right = folded.slice(split);
+    if (!WORD_GLUE_LEXICON.has(left) || !WORD_GLUE_LEXICON.has(right)) {
+      continue;
+    }
+
+    const characters = Array.from(token);
+    return [characters.slice(0, split).join(""), characters.slice(split).join("")];
+  }
+
+  return [token];
+}
+
+function foldLexiconWord(token) {
+  return Array.from(token, (character) => {
+    const normalized = (ASCII_REPLACEMENTS[character] ?? character)
+      .replaceAll("ł", "l")
+      .replaceAll("Ł", "L")
+      .normalize("NFKD")
+      .replace(COMBINING_MARKS_RE, "")
+      .toLowerCase();
+    return /^[a-z0-9]$/.test(normalized) ? normalized : "";
+  }).join("");
 }
 
 function cleanText(text, mode) {

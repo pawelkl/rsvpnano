@@ -39,6 +39,7 @@ constexpr const char *kPrefTypographyFocusHighlight = "type_hlt";
 constexpr const char *kPrefPacingLongMs = "pace_lms";
 constexpr const char *kPrefPacingComplexMs = "pace_cms";
 constexpr const char *kPrefPacingPunctuationMs = "pace_pms";
+constexpr const char *kPrefJoinLeadingHyphen = "join_dash";
 constexpr const char *kPrefPauseMode = "pause_md";
 constexpr const char *kPrefAccurateTime = "time_est_a";
 constexpr const char *kPrefTypographyTracking = "type_trk";
@@ -52,7 +53,7 @@ constexpr uint16_t kMinWpm = 10;
 constexpr uint16_t kMaxWpm = 1000;
 constexpr uint8_t kDefaultBrightness = 3;
 constexpr uint8_t kMaxBrightness = 4;
-constexpr uint8_t kMaxUiLanguage = 1;
+constexpr uint8_t kMaxUiLanguage = 5;
 constexpr uint8_t kMaxReaderMode = 1;
 constexpr uint8_t kMaxHandedness = 1;
 constexpr uint8_t kMaxFooterMetric = 2;
@@ -149,6 +150,7 @@ ul{padding-left:20px}code{background:var(--soft);border-radius:4px;padding:1px 4
 <label>Long words <span id="longWordMsValue"></span></label><input id="longWordMs" type="range" min="0" max="600" step="50">
 <label>Complexity <span id="complexWordMsValue"></span></label><input id="complexWordMs" type="range" min="0" max="600" step="50">
 <label>Punctuation <span id="punctuationMsValue"></span></label><input id="punctuationMs" type="range" min="0" max="600" step="50">
+<label><input id="joinLeadingDash" type="checkbox" style="width:auto"> Join leading dash to next word</label>
 </div>
 <div class="card"><h2>Display</h2>
 <label>Display mode</label><select id="displayMode"><option value="dark">Dark</option><option value="light">Light</option><option value="night">Night</option></select>
@@ -222,8 +224,8 @@ function val(id){const e=$(id);return e.type==='checkbox'?e.checked:e.value}
 function setVal(id,v){const e=$(id);if(e.type==='checkbox')e.checked=!!v;else e.value=v}
 function snapWpm(v){v=Math.max(10,Math.min(1000,Math.round(+v||300)));return v<=100?Math.max(10,Math.min(100,Math.round(v/10)*10)):Math.min(1000,100+Math.round((v-100)/25)*25)}
 function updateLabels(){['wpm','longWordMs','complexWordMs','punctuationMs','brightnessIndex','fontSizeIndex','tracking','anchorPercent','guideWidth','guideGap'].forEach(id=>{const l=$(id+'Value')||$(id.replace('Index','')+'Value');if(l)l.textContent=$(id).value+(id==='wpm'?' WPM':id.includes('Ms')?' ms':'')})}
-async function loadSettings(){try{settings=await api('/api/settings');setVal('readerMode',settings.reading.readerMode);setVal('pauseMode',settings.reading.pauseMode);setVal('wpm',snapWpm(settings.reading.wpm));setVal('longWordMs',settings.reading.pacing.longWordMs);setVal('complexWordMs',settings.reading.pacing.complexWordMs);setVal('punctuationMs',settings.reading.pacing.punctuationMs);setVal('displayMode',settings.display.nightMode?'night':settings.display.darkMode?'dark':'light');setVal('brightnessIndex',settings.display.brightnessIndex);setVal('handedness',settings.display.handedness);setVal('footerMetric',settings.display.footerMetric);setVal('batteryLabel',settings.display.batteryLabel);setVal('readingBattery',settings.display.readingBattery);setVal('readingChapter',settings.display.readingChapter);setVal('readingProgress',settings.display.readingProgress);setVal('typeface',settings.typography.typeface);setVal('fontSizeIndex',settings.display.fontSizeIndex);setVal('tracking',settings.typography.tracking);setVal('anchorPercent',settings.typography.anchorPercent);setVal('guideWidth',settings.typography.guideWidth);setVal('guideGap',settings.typography.guideGap);setVal('focusHighlight',settings.typography.focusHighlight);setVal('phantomWords',settings.display.phantomWords);updateLabels()}catch(e){status('Settings load failed: '+e.message)}}
-async function saveSettings(){setVal('wpm',snapWpm(val('wpm')));const mode=val('displayMode');const payload={reading:{wpm:+val('wpm'),readerMode:val('readerMode'),pauseMode:val('pauseMode'),pacing:{longWordMs:+val('longWordMs'),complexWordMs:+val('complexWordMs'),punctuationMs:+val('punctuationMs')}},display:{darkMode:mode==='dark',nightMode:mode==='night',brightnessIndex:+val('brightnessIndex'),handedness:val('handedness'),footerMetric:val('footerMetric'),batteryLabel:val('batteryLabel'),readingBattery:val('readingBattery'),readingChapter:val('readingChapter'),readingProgress:val('readingProgress'),phantomWords:val('phantomWords'),fontSizeIndex:+val('fontSizeIndex')},typography:{typeface:val('typeface'),focusHighlight:val('focusHighlight'),tracking:+val('tracking'),anchorPercent:+val('anchorPercent'),guideWidth:+val('guideWidth'),guideGap:+val('guideGap')}};try{settings=await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});status('Settings saved. Exit sync mode to apply all reader changes.')}catch(e){status('Settings save failed: '+e.message)}}
+async function loadSettings(){try{settings=await api('/api/settings');setVal('readerMode',settings.reading.readerMode);setVal('pauseMode',settings.reading.pauseMode);setVal('wpm',snapWpm(settings.reading.wpm));setVal('longWordMs',settings.reading.pacing.longWordMs);setVal('complexWordMs',settings.reading.pacing.complexWordMs);setVal('punctuationMs',settings.reading.pacing.punctuationMs);setVal('joinLeadingDash',settings.reading.joinLeadingDash);setVal('displayMode',settings.display.nightMode?'night':settings.display.darkMode?'dark':'light');setVal('brightnessIndex',settings.display.brightnessIndex);setVal('handedness',settings.display.handedness);setVal('footerMetric',settings.display.footerMetric);setVal('batteryLabel',settings.display.batteryLabel);setVal('readingBattery',settings.display.readingBattery);setVal('readingChapter',settings.display.readingChapter);setVal('readingProgress',settings.display.readingProgress);setVal('typeface',settings.typography.typeface);setVal('fontSizeIndex',settings.display.fontSizeIndex);setVal('tracking',settings.typography.tracking);setVal('anchorPercent',settings.typography.anchorPercent);setVal('guideWidth',settings.typography.guideWidth);setVal('guideGap',settings.typography.guideGap);setVal('focusHighlight',settings.typography.focusHighlight);setVal('phantomWords',settings.display.phantomWords);updateLabels()}catch(e){status('Settings load failed: '+e.message)}}
+async function saveSettings(){setVal('wpm',snapWpm(val('wpm')));const mode=val('displayMode');const payload={reading:{wpm:+val('wpm'),readerMode:val('readerMode'),pauseMode:val('pauseMode'),joinLeadingDash:val('joinLeadingDash'),pacing:{longWordMs:+val('longWordMs'),complexWordMs:+val('complexWordMs'),punctuationMs:+val('punctuationMs')}},display:{darkMode:mode==='dark',nightMode:mode==='night',brightnessIndex:+val('brightnessIndex'),handedness:val('handedness'),footerMetric:val('footerMetric'),batteryLabel:val('batteryLabel'),readingBattery:val('readingBattery'),readingChapter:val('readingChapter'),readingProgress:val('readingProgress'),phantomWords:val('phantomWords'),fontSizeIndex:+val('fontSizeIndex')},typography:{typeface:val('typeface'),focusHighlight:val('focusHighlight'),tracking:+val('tracking'),anchorPercent:+val('anchorPercent'),guideWidth:+val('guideWidth'),guideGap:+val('guideGap')}};try{settings=await api('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});status('Settings saved. Exit sync mode to apply all reader changes.')}catch(e){status('Settings save failed: '+e.message)}}
 async function loadWifi(){try{const w=await api('/api/wifi');$('wifiSsid').value=w.ssid||'';$('wifiPassword').value='';$('wifiCurrent').textContent=w.configured?'Saved network: '+w.ssid:'No home Wi-Fi saved.'}catch(e){status('Wi-Fi load failed: '+e.message)}}
 async function saveWifi(){const ssid=$('wifiSsid').value.trim();if(!ssid){status('Enter a Wi-Fi SSID first.');return}try{const w=await api('/api/wifi',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid,password:$('wifiPassword').value})});$('wifiPassword').value='';$('wifiCurrent').textContent='Saved network: '+w.ssid;status('Wi-Fi saved for RSS and OTA.')}catch(e){status('Wi-Fi save failed: '+e.message)}}
 async function forgetWifi(){if(!confirm('Forget saved Wi-Fi?'))return;try{await api('/api/wifi',{method:'DELETE'});$('wifiSsid').value='';$('wifiPassword').value='';$('wifiCurrent').textContent='No home Wi-Fi saved.';status('Wi-Fi credentials cleared.')}catch(e){status('Forget Wi-Fi failed: '+e.message)}}
@@ -1059,6 +1061,8 @@ String CompanionSyncManager::settingsJson() {
   body += ",\"pacing\":{\"longWordMs\":" + String(longDelay) +
           ",\"complexWordMs\":" + String(complexDelay) +
           ",\"punctuationMs\":" + String(punctuationDelay) + "}";
+  body += ",\"joinLeadingDash\":" +
+          String(preferences_.getBool(kPrefJoinLeadingHyphen, false) ? "true" : "false");
   body += "}";
   body += ",\"display\":{";
   body += "\"brightnessIndex\":" + String(brightness);
@@ -1174,6 +1178,9 @@ bool CompanionSyncManager::applySettingsJson(const String &body, String &error) 
       return false;
     }
     preferences_.putUShort(kPrefPacingPunctuationMs, static_cast<uint16_t>(intValue));
+  }
+  if (readJsonBool(body, "joinLeadingDash", boolValue)) {
+    preferences_.putBool(kPrefJoinLeadingHyphen, boolValue);
   }
   if (readJsonInt(body, "brightnessIndex", intValue)) {
     if (intValue < 0 || intValue > kMaxBrightness) {
