@@ -514,6 +514,9 @@ DisplayManager::ReaderTypeface readerTypefaceFromSetting(uint8_t value) {
     case DisplayManager::ReaderTypeface::Standard:
     case DisplayManager::ReaderTypeface::OpenDyslexic:
     case DisplayManager::ReaderTypeface::AtkinsonHyperlegible:
+    case DisplayManager::ReaderTypeface::Lato:
+    case DisplayManager::ReaderTypeface::LatoLight:
+    case DisplayManager::ReaderTypeface::LatoThin:
       return static_cast<DisplayManager::ReaderTypeface>(value);
   }
   return DisplayManager::ReaderTypeface::Standard;
@@ -526,6 +529,12 @@ DisplayManager::ReaderTypeface nextReaderTypeface(DisplayManager::ReaderTypeface
     case DisplayManager::ReaderTypeface::AtkinsonHyperlegible:
       return DisplayManager::ReaderTypeface::OpenDyslexic;
     case DisplayManager::ReaderTypeface::OpenDyslexic:
+      return DisplayManager::ReaderTypeface::Lato;
+    case DisplayManager::ReaderTypeface::Lato:
+      return DisplayManager::ReaderTypeface::LatoLight;
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return DisplayManager::ReaderTypeface::LatoThin;
+    case DisplayManager::ReaderTypeface::LatoThin:
     default:
       return DisplayManager::ReaderTypeface::Standard;
   }
@@ -3745,6 +3754,12 @@ String App::readerTypefaceLabel() const {
       return "Atkinson";
     case DisplayManager::ReaderTypeface::OpenDyslexic:
       return "OpenDyslexic";
+    case DisplayManager::ReaderTypeface::Lato:
+      return "Lato";
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return "Lato Light";
+    case DisplayManager::ReaderTypeface::LatoThin:
+      return "Lato Thin";
     case DisplayManager::ReaderTypeface::Standard:
     default:
       return uiText(UiText::Standard);

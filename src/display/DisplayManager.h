@@ -11,6 +11,9 @@ class DisplayManager {
     Standard = 0,
     OpenDyslexic = 1,
     AtkinsonHyperlegible = 2,
+    Lato = 3,
+    LatoLight = 4,
+    LatoThin = 5,
   };
 
   struct TypographyConfig {

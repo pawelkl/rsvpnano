@@ -58,7 +58,7 @@ constexpr uint8_t kMaxHandedness = 1;
 constexpr uint8_t kMaxFooterMetric = 2;
 constexpr uint8_t kMaxBatteryLabel = 2;
 constexpr uint8_t kMaxReaderFontSize = 2;
-constexpr uint8_t kMaxReaderTypeface = 2;
+constexpr uint8_t kMaxReaderTypeface = 5;
 constexpr uint8_t kMaxPauseMode = 1;
 constexpr uint16_t kDefaultPacingDelayMs = 200;
 constexpr uint16_t kMaxPacingDelayMs = 600;
@@ -161,7 +161,7 @@ ul{padding-left:20px}code{background:var(--soft);border-radius:4px;padding:1px 4
 <label><input id="readingProgress" type="checkbox" style="width:auto"> Show book percent while reading</label>
 </div>
 <div class="card"><h2>Typography</h2>
-<label>Typeface</label><select id="typeface"><option value="standard">Standard</option><option value="open_dyslexic">OpenDyslexic</option><option value="atkinson">Atkinson</option></select>
+<label>Typeface</label><select id="typeface"><option value="standard">Standard</option><option value="open_dyslexic">OpenDyslexic</option><option value="atkinson">Atkinson</option><option value="lato">Lato</option><option value="lato_light">Lato Light</option><option value="lato_thin">Lato Thin</option></select>
 <label>Font size <span id="fontSizeValue"></span></label><input id="fontSizeIndex" type="range" min="0" max="2">
 <label>Tracking <span id="trackingValue"></span></label><input id="tracking" type="range" min="-2" max="3">
 <label>Anchor <span id="anchorValue"></span></label><input id="anchorPercent" type="range" min="30" max="40">
@@ -997,7 +997,8 @@ String CompanionSyncManager::settingsJson() {
   static const char *const handednessLabels[] = {"right", "left"};
   static const char *const footerMetricLabels[] = {"percentage", "chapter_time", "book_time"};
   static const char *const batteryLabelLabels[] = {"percent", "time_remaining", "voltage"};
-  static const char *const typefaceLabels[] = {"standard", "open_dyslexic", "atkinson"};
+  static const char *const typefaceLabels[] = {"standard", "open_dyslexic", "atkinson",
+                                               "lato", "lato_light", "lato_thin"};
   static const char *const pauseModeLabels[] = {"sentence_end", "instant"};
 
   const uint16_t wpm =
@@ -1086,7 +1087,7 @@ String CompanionSyncManager::settingsJson() {
   body += "}";
   body += ",\"typography\":{";
   body += "\"typeface\":\"";
-  body += enumLabel(typeface, typefaceLabels, 3);
+  body += enumLabel(typeface, typefaceLabels, 6);
   body += "\"";
   body += ",\"focusHighlight\":" +
           String(preferences_.getBool(kPrefTypographyFocusHighlight, true) ? "true" : "false");
@@ -1121,7 +1122,8 @@ bool CompanionSyncManager::applySettingsJson(const String &body, String &error) 
   static const char *const handednessLabels[] = {"right", "left"};
   static const char *const footerMetricLabels[] = {"percentage", "chapter_time", "book_time"};
   static const char *const batteryLabelLabels[] = {"percent", "time_remaining", "voltage"};
-  static const char *const typefaceLabels[] = {"standard", "open_dyslexic", "atkinson"};
+  static const char *const typefaceLabels[] = {"standard", "open_dyslexic", "atkinson",
+                                               "lato", "lato_light", "lato_thin"};
   static const char *const pauseModeLabels[] = {"sentence_end", "instant"};
 
   int intValue = 0;
@@ -1237,9 +1239,9 @@ bool CompanionSyncManager::applySettingsJson(const String &body, String &error) 
     preferences_.putUChar(kPrefReaderFontSize, static_cast<uint8_t>(intValue));
   }
   if (readJsonString(body, "typeface", stringValue)) {
-    const int value = enumValue(stringValue, typefaceLabels, 3);
+    const int value = enumValue(stringValue, typefaceLabels, 6);
     if (value < 0) {
-      error = "typeface must be standard, open_dyslexic, or atkinson";
+      error = "typeface must be standard, open_dyslexic, atkinson, lato, lato_light, or lato_thin";
       return false;
     }
     preferences_.putUChar(kPrefReaderTypeface, static_cast<uint8_t>(value));

@@ -10,6 +10,12 @@
 #include "board/BoardConfig.h"
 #include "display/EmbeddedAtkinsonFont.h"
 #include "display/EmbeddedAtkinsonFont70.h"
+#include "display/EmbeddedLatoFont.h"
+#include "display/EmbeddedLatoFont70.h"
+#include "display/EmbeddedLatoLightFont.h"
+#include "display/EmbeddedLatoLightFont70.h"
+#include "display/EmbeddedLatoThinFont.h"
+#include "display/EmbeddedLatoThinFont70.h"
 #include "display/EmbeddedOpenDyslexicFont.h"
 #include "display/EmbeddedOpenDyslexicFont70.h"
 #include "display/EmbeddedSerifFont.h"
@@ -184,6 +190,9 @@ DisplayManager::ReaderTypeface sanitizeReaderTypeface(DisplayManager::ReaderType
     case DisplayManager::ReaderTypeface::Standard:
     case DisplayManager::ReaderTypeface::OpenDyslexic:
     case DisplayManager::ReaderTypeface::AtkinsonHyperlegible:
+    case DisplayManager::ReaderTypeface::Lato:
+    case DisplayManager::ReaderTypeface::LatoLight:
+    case DisplayManager::ReaderTypeface::LatoThin:
       return typeface;
   }
   return DisplayManager::ReaderTypeface::Standard;
@@ -263,6 +272,12 @@ int baseGlyphHeightForTypeface(DisplayManager::ReaderTypeface typeface) {
       return kEmbeddedOpenDyslexicHeight;
     case DisplayManager::ReaderTypeface::AtkinsonHyperlegible:
       return kEmbeddedAtkinsonHeight;
+    case DisplayManager::ReaderTypeface::Lato:
+      return kEmbeddedLatoHeight;
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return kEmbeddedLatoLightHeight;
+    case DisplayManager::ReaderTypeface::LatoThin:
+      return kEmbeddedLatoThinHeight;
     case DisplayManager::ReaderTypeface::Standard:
     default:
       return kEmbeddedSerifHeight;
@@ -279,6 +294,12 @@ int mediumGlyphHeightForTypeface(DisplayManager::ReaderTypeface typeface) {
       return kEmbeddedOpenDyslexic70Height;
     case DisplayManager::ReaderTypeface::AtkinsonHyperlegible:
       return kEmbeddedAtkinson70Height;
+    case DisplayManager::ReaderTypeface::Lato:
+      return kEmbeddedLato70Height;
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return kEmbeddedLatoLight70Height;
+    case DisplayManager::ReaderTypeface::LatoThin:
+      return kEmbeddedLatoThin70Height;
     case DisplayManager::ReaderTypeface::Standard:
     default:
       return kEmbeddedSerif70Height;
@@ -373,6 +394,64 @@ ReaderGlyph serif70GlyphForByte(uint8_t value) {
           glyph.xAdvance, kEmbeddedSerif70Height};
 }
 
+ReaderGlyph latoGlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLatoFirstChar || value > kEmbeddedLatoLastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLatoGlyph &glyph = kEmbeddedLatoGlyphs[value - kEmbeddedLatoFirstChar];
+  return {kEmbeddedLatoBitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width, glyph.xAdvance,
+          kEmbeddedLatoHeight};
+}
+
+ReaderGlyph lato70GlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLato70FirstChar || value > kEmbeddedLato70LastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLato70Glyph &glyph = kEmbeddedLato70Glyphs[value - kEmbeddedLato70FirstChar];
+  return {kEmbeddedLato70Bitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
+          glyph.xAdvance, kEmbeddedLato70Height};
+}
+
+ReaderGlyph latoLightGlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLatoLightFirstChar || value > kEmbeddedLatoLightLastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLatoLightGlyph &glyph =
+      kEmbeddedLatoLightGlyphs[value - kEmbeddedLatoLightFirstChar];
+  return {kEmbeddedLatoLightBitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
+          glyph.xAdvance, kEmbeddedLatoLightHeight};
+}
+
+ReaderGlyph latoLight70GlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLatoLight70FirstChar || value > kEmbeddedLatoLight70LastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLatoLight70Glyph &glyph =
+      kEmbeddedLatoLight70Glyphs[value - kEmbeddedLatoLight70FirstChar];
+  return {kEmbeddedLatoLight70Bitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
+          glyph.xAdvance, kEmbeddedLatoLight70Height};
+}
+
+ReaderGlyph latoThinGlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLatoThinFirstChar || value > kEmbeddedLatoThinLastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLatoThinGlyph &glyph =
+      kEmbeddedLatoThinGlyphs[value - kEmbeddedLatoThinFirstChar];
+  return {kEmbeddedLatoThinBitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
+          glyph.xAdvance, kEmbeddedLatoThinHeight};
+}
+
+ReaderGlyph latoThin70GlyphForByte(uint8_t value) {
+  if (value < kEmbeddedLatoThin70FirstChar || value > kEmbeddedLatoThin70LastChar) {
+    value = static_cast<uint8_t>('?');
+  }
+  const EmbeddedLatoThin70Glyph &glyph =
+      kEmbeddedLatoThin70Glyphs[value - kEmbeddedLatoThin70FirstChar];
+  return {kEmbeddedLatoThin70Bitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
+          glyph.xAdvance, kEmbeddedLatoThin70Height};
+}
+
 ReaderGlyph glyphFor(char c, DisplayManager::ReaderTypeface typeface) {
   const uint8_t value = LatinText::byteValue(c);
   uint8_t baseValue = 0;
@@ -400,6 +479,12 @@ ReaderGlyph glyphFor(char c, DisplayManager::ReaderTypeface typeface) {
       return {kEmbeddedAtkinsonBitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
               glyph.xAdvance, kEmbeddedAtkinsonHeight};
     }
+    case DisplayManager::ReaderTypeface::Lato:
+      return latoGlyphForByte(lookupValue);
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return latoLightGlyphForByte(lookupValue);
+    case DisplayManager::ReaderTypeface::LatoThin:
+      return latoThinGlyphForByte(lookupValue);
     case DisplayManager::ReaderTypeface::Standard:
     default:
       return serifGlyphForByte(lookupValue);
@@ -436,6 +521,12 @@ ReaderGlyph glyph70For(char c, DisplayManager::ReaderTypeface typeface) {
       return {kEmbeddedAtkinson70Bitmaps + glyph.bitmapOffset, glyph.xOffset, glyph.width,
               glyph.xAdvance, kEmbeddedAtkinson70Height};
     }
+    case DisplayManager::ReaderTypeface::Lato:
+      return lato70GlyphForByte(lookupValue);
+    case DisplayManager::ReaderTypeface::LatoLight:
+      return latoLight70GlyphForByte(lookupValue);
+    case DisplayManager::ReaderTypeface::LatoThin:
+      return latoThin70GlyphForByte(lookupValue);
     case DisplayManager::ReaderTypeface::Standard:
     default:
       return serif70GlyphForByte(lookupValue);
