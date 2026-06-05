@@ -172,10 +172,12 @@ constexpr size_t kSettingsPacingReadingModeIndex = 1;
 constexpr size_t kSettingsPacingPauseModeIndex = 2;
 constexpr size_t kSettingsPacingWpmIndex = 3;
 constexpr size_t kSettingsPacingLongWordsIndex = 4;
-constexpr size_t kSettingsPacingComplexityIndex = 5;
-constexpr size_t kSettingsPacingPunctuationIndex = 6;
-constexpr size_t kSettingsPacingJoinHyphenIndex = 7;
-constexpr size_t kSettingsPacingResetIndex = 8;
+constexpr size_t kSettingsPacingLongWordModeIndex = 5;
+constexpr size_t kSettingsPacingLongWordMultiplierIndex = 6;
+constexpr size_t kSettingsPacingComplexityIndex = 7;
+constexpr size_t kSettingsPacingPunctuationIndex = 8;
+constexpr size_t kSettingsPacingJoinHyphenIndex = 9;
+constexpr size_t kSettingsPacingResetIndex = 10;
 constexpr size_t kWifiSettingsNetworkIndex = 1;
 constexpr size_t kWifiSettingsChooseIndex = 2;
 constexpr size_t kWifiSettingsAutoUpdateIndex = 3;
@@ -213,6 +215,8 @@ constexpr const char *kPrefLegacyPacingLong = "pace_len";
 constexpr const char *kPrefLegacyPacingComplex = "pace_cpx";
 constexpr const char *kPrefLegacyPacingPunctuation = "pace_pnc";
 constexpr const char *kPrefPacingLongMs = "pace_lms";
+constexpr const char *kPrefPacingLongProportional = "pace_lpr";
+constexpr const char *kPrefPacingLongMultiplier = "pace_lmx";
 constexpr const char *kPrefPacingComplexMs = "pace_cms";
 constexpr const char *kPrefPacingPunctuationMs = "pace_pms";
 constexpr const char *kPrefJoinLeadingHyphen = "join_dash";
@@ -235,6 +239,10 @@ constexpr uint16_t kPacingDelayMinMs = 0;
 constexpr uint16_t kPacingDelayMaxMs = 600;
 constexpr uint16_t kPacingDelayStepMs = 50;
 constexpr uint16_t kDefaultPacingDelayMs = 200;
+constexpr uint16_t kLongWordMultiplierMin = 50;
+constexpr uint16_t kLongWordMultiplierMax = 300;
+constexpr uint16_t kLongWordMultiplierStep = 25;
+constexpr uint16_t kDefaultLongWordMultiplier = 150;
 constexpr uint16_t kSettingsWpmMin = 10;
 constexpr uint16_t kSettingsWpmLowMax = 100;
 constexpr uint16_t kSettingsWpmLowStep = 10;
@@ -699,6 +707,11 @@ void App::begin() {
   }
   pacingLongWordDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingLongMs, kPrefLegacyPacingLong);
+  pacingLongWordProportional_ =
+      preferences_.getBool(kPrefPacingLongProportional, pacingLongWordProportional_);
+  pacingLongWordMultiplierPercent_ = static_cast<uint16_t>(clampIntSetting(
+      preferences_.getUShort(kPrefPacingLongMultiplier, kDefaultLongWordMultiplier),
+      kLongWordMultiplierMin, kLongWordMultiplierMax));
   pacingComplexWordDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingComplexMs, kPrefLegacyPacingComplex);
   pacingPunctuationDelayMs_ =
@@ -1372,6 +1385,11 @@ void App::reloadRuntimePreferences(uint32_t nowMs, bool rerender) {
 
   pacingLongWordDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingLongMs, kPrefLegacyPacingLong);
+  pacingLongWordProportional_ =
+      preferences_.getBool(kPrefPacingLongProportional, pacingLongWordProportional_);
+  pacingLongWordMultiplierPercent_ = static_cast<uint16_t>(clampIntSetting(
+      preferences_.getUShort(kPrefPacingLongMultiplier, kDefaultLongWordMultiplier),
+      kLongWordMultiplierMin, kLongWordMultiplierMax));
   pacingComplexWordDelayMs_ =
       loadPacingDelayMs(preferences_, kPrefPacingComplexMs, kPrefLegacyPacingComplex);
   pacingPunctuationDelayMs_ =
@@ -2820,6 +2838,18 @@ void App::selectSettingsItem(uint32_t nowMs) {
       preferences_.putUShort(kPrefPacingLongMs, pacingLongWordDelayMs_);
       pacingConfigChanged = true;
       break;
+    case kSettingsPacingLongWordModeIndex:
+      pacingLongWordProportional_ = !pacingLongWordProportional_;
+      preferences_.putBool(kPrefPacingLongProportional, pacingLongWordProportional_);
+      pacingConfigChanged = true;
+      break;
+    case kSettingsPacingLongWordMultiplierIndex:
+      pacingLongWordMultiplierPercent_ = static_cast<uint16_t>(
+          nextCyclicSetting(pacingLongWordMultiplierPercent_, kLongWordMultiplierMin,
+                            kLongWordMultiplierMax, kLongWordMultiplierStep));
+      preferences_.putUShort(kPrefPacingLongMultiplier, pacingLongWordMultiplierPercent_);
+      pacingConfigChanged = true;
+      break;
     case kSettingsPacingComplexityIndex:
       pacingComplexWordDelayMs_ = static_cast<uint16_t>(nextCyclicSetting(
           pacingComplexWordDelayMs_, kPacingDelayMinMs, kPacingDelayMaxMs, kPacingDelayStepMs));
@@ -2841,10 +2871,14 @@ void App::selectSettingsItem(uint32_t nowMs) {
       return;
     case kSettingsPacingResetIndex:
       pacingLongWordDelayMs_ = kDefaultPacingDelayMs;
+      pacingLongWordProportional_ = false;
+      pacingLongWordMultiplierPercent_ = kDefaultLongWordMultiplier;
       pacingComplexWordDelayMs_ = kDefaultPacingDelayMs;
       pacingPunctuationDelayMs_ = kDefaultPacingDelayMs;
       joinLeadingHyphenWithNextWord_ = false;
       preferences_.putUShort(kPrefPacingLongMs, pacingLongWordDelayMs_);
+      preferences_.putBool(kPrefPacingLongProportional, pacingLongWordProportional_);
+      preferences_.putUShort(kPrefPacingLongMultiplier, pacingLongWordMultiplierPercent_);
       preferences_.putUShort(kPrefPacingComplexMs, pacingComplexWordDelayMs_);
       preferences_.putUShort(kPrefPacingPunctuationMs, pacingPunctuationDelayMs_);
       preferences_.putBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
@@ -3406,6 +3440,8 @@ void App::rebuildSettingsMenuItems() {
     settingsMenuItems_.push_back("Base speed: " + String(reader_.wpm()) + " WPM");
     settingsMenuItems_.push_back(uiText(UiText::LongWords) + ": " +
                                  pacingDelayLabel(pacingLongWordDelayMs_));
+    settingsMenuItems_.push_back("Long word mode: " + longWordPacingModeLabel());
+    settingsMenuItems_.push_back("Long multiplier: " + longWordMultiplierLabel());
     settingsMenuItems_.push_back(uiText(UiText::Complexity) + ": " +
                                  pacingDelayLabel(pacingComplexWordDelayMs_));
     settingsMenuItems_.push_back(uiText(UiText::Punctuation) + ": " +
@@ -3430,13 +3466,19 @@ void App::rebuildSettingsMenuItems() {
 void App::applyPacingSettings() {
   ReadingLoop::PacingConfig pacingConfig;
   pacingConfig.longWordDelayMs = pacingLongWordDelayMs_;
+  pacingConfig.longWordProportional = pacingLongWordProportional_;
+  pacingConfig.longWordMultiplierPercent = pacingLongWordMultiplierPercent_;
   pacingConfig.complexWordDelayMs = pacingComplexWordDelayMs_;
   pacingConfig.punctuationDelayMs = pacingPunctuationDelayMs_;
   reader_.setPacingConfig(pacingConfig);
   storage_.setJoinLeadingHyphenWithNextWord(joinLeadingHyphenWithNextWord_);
 
-  Serial.printf("[settings] pacing long=%u ms complexity=%u ms punctuation=%u ms joinDash=%u\n",
+  Serial.printf(
+      "[settings] pacing long=%u ms proportional=%u multiplier=%u%% complexity=%u ms "
+      "punctuation=%u ms joinDash=%u\n",
                 static_cast<unsigned int>(pacingLongWordDelayMs_),
+                pacingLongWordProportional_ ? 1U : 0U,
+                static_cast<unsigned int>(pacingLongWordMultiplierPercent_),
                 static_cast<unsigned int>(pacingComplexWordDelayMs_),
                 static_cast<unsigned int>(pacingPunctuationDelayMs_),
                 joinLeadingHyphenWithNextWord_ ? 1U : 0U);
@@ -3710,6 +3752,14 @@ void App::runRssFeedCheck(uint32_t nowMs) {
 }
 
 String App::pacingDelayLabel(uint16_t delayMs) const { return String(delayMs) + " ms"; }
+
+String App::longWordPacingModeLabel() const {
+  return pacingLongWordProportional_ ? "Proportional" : "Fixed";
+}
+
+String App::longWordMultiplierLabel() const {
+  return String(pacingLongWordMultiplierPercent_) + "%";
+}
 
 String App::firmwareUpdateMenuLabel() const { return "Firmware update"; }
 

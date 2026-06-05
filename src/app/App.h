@@ -263,6 +263,8 @@ class App {
   bool otaAutoCheckEnabled();
   String otaOwnerLabel();
   String pacingDelayLabel(uint16_t delayMs) const;
+  String longWordPacingModeLabel() const;
+  String longWordMultiplierLabel() const;
   String firmwareUpdateMenuLabel() const;
   String themeModeLabel() const;
   String phantomWordsLabel() const;
@@ -456,8 +458,10 @@ class App {
   uint8_t brightnessLevelIndex_ = 4;
   uint8_t readerFontSizeIndex_ = 0;
   uint16_t pacingLongWordDelayMs_ = 200;
+  uint16_t pacingLongWordMultiplierPercent_ = 150;
   uint16_t pacingComplexWordDelayMs_ = 200;
   uint16_t pacingPunctuationDelayMs_ = 200;
+  bool pacingLongWordProportional_ = false;
   bool joinLeadingHyphenWithNextWord_ = false;
   size_t typographyTuningSelectedIndex_ = 1;
   size_t typographyPreviewSampleIndex_ = 0;

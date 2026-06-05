@@ -130,6 +130,8 @@ constexpr uint8_t kSentencePausePercent = 135;
 constexpr uint8_t kStrongSentencePausePercent = 150;
 constexpr uint8_t kMaxCatchUpWords = 4;
 constexpr uint16_t kMaxPacingDelayMs = 600;
+constexpr uint16_t kMinLongWordMultiplierPercent = 50;
+constexpr uint16_t kMaxLongWordMultiplierPercent = 300;
 
 bool isWordCharacter(char c) {
   return LatinText::isWordCharacter(static_cast<uint8_t>(c));
@@ -430,6 +432,23 @@ uint32_t scaledDelayMs(uint16_t bonusPercent, uint16_t delayMs) {
          100UL;
 }
 
+uint16_t clampLongWordMultiplierPercent(uint16_t multiplierPercent) {
+  if (multiplierPercent < kMinLongWordMultiplierPercent) {
+    return kMinLongWordMultiplierPercent;
+  }
+  if (multiplierPercent > kMaxLongWordMultiplierPercent) {
+    return kMaxLongWordMultiplierPercent;
+  }
+  return multiplierPercent;
+}
+
+uint32_t proportionalLongWordBonusMs(uint16_t bonusPercent, uint32_t baseIntervalMs,
+                                     uint16_t multiplierPercent) {
+  return (static_cast<uint32_t>(bonusPercent) * baseIntervalMs *
+          static_cast<uint32_t>(clampLongWordMultiplierPercent(multiplierPercent))) /
+         10000UL;
+}
+
 uint16_t lengthBonusPercentForWord(const String &word) {
   const int readableLength = readableCharacterCount(word);
   if (readableLength == 0) {
@@ -532,15 +551,19 @@ uint16_t punctuationPausePercentForWord(const String &word, bool nextWordStartsL
 }
 
 uint32_t pacingBonusMsForWord(const String &word, bool nextWordStartsLowercase,
+                              uint32_t baseIntervalMs,
                               const ReadingLoop::PacingConfig &config) {
   if (word.isEmpty()) {
     return 0;
   }
 
   uint32_t totalBonusMs = 0;
-  totalBonusMs += scaledDelayMs(
-      scaledPercent(lengthBonusPercentForWord(word), config.longWordScalePercent),
-      config.longWordDelayMs);
+  const uint16_t longWordBonusPercent =
+      scaledPercent(lengthBonusPercentForWord(word), config.longWordScalePercent);
+  totalBonusMs += config.longWordProportional
+                      ? proportionalLongWordBonusMs(longWordBonusPercent, baseIntervalMs,
+                                                    config.longWordMultiplierPercent)
+                      : scaledDelayMs(longWordBonusPercent, config.longWordDelayMs);
   totalBonusMs += scaledDelayMs(
       scaledPercent(complexityBonusPercentForWord(word), config.complexWordScalePercent),
       config.complexWordDelayMs);
@@ -556,7 +579,8 @@ uint32_t durationForWord(const String &word, bool nextWordStartsLowercase, uint3
   if (baseIntervalMs == 0) {
     return 0;
   }
-  return baseIntervalMs + pacingBonusMsForWord(word, nextWordStartsLowercase, config);
+  return baseIntervalMs +
+         pacingBonusMsForWord(word, nextWordStartsLowercase, baseIntervalMs, config);
 }
 
 }  // namespace
@@ -641,7 +665,7 @@ uint32_t ReadingLoop::wordPacingBonusMsAt(size_t index) const {
 
   const String word = wordAt(index);
   const bool nextLowercase = nextWordStartsLowercaseAt(index);
-  return pacingBonusMsForWord(word, nextLowercase, pacingConfig_);
+  return pacingBonusMsForWord(word, nextLowercase, wordIntervalMs(), pacingConfig_);
 }
 
 uint32_t ReadingLoop::elapsedInCurrentWordMs(uint32_t nowMs) const {
@@ -765,9 +789,12 @@ void ReadingLoop::setPacingConfig(const PacingConfig &config) {
   pacingConfig_.longWordDelayMs = clampPacingDelayMs(config.longWordDelayMs);
   pacingConfig_.complexWordDelayMs = clampPacingDelayMs(config.complexWordDelayMs);
   pacingConfig_.punctuationDelayMs = clampPacingDelayMs(config.punctuationDelayMs);
+  pacingConfig_.longWordMultiplierPercent =
+      clampLongWordMultiplierPercent(config.longWordMultiplierPercent);
   pacingConfig_.longWordScalePercent = clampScalePercent(config.longWordScalePercent);
   pacingConfig_.complexWordScalePercent = clampScalePercent(config.complexWordScalePercent);
   pacingConfig_.punctuationScalePercent = clampScalePercent(config.punctuationScalePercent);
+  pacingConfig_.longWordProportional = config.longWordProportional;
 }
 
 const ReadingLoop::PacingConfig &ReadingLoop::pacingConfig() const { return pacingConfig_; }
