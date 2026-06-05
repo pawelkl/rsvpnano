@@ -228,6 +228,7 @@ class App {
   void resetFocusTimer();
   void rebuildFocusTimerGenreMenuItems();
   void selectFocusTimerGenre(uint32_t nowMs);
+  void applyFocusTimerDurationSetting();
   void openSettings();
   void selectSettingsItem(uint32_t nowMs);
   void openWifiSettings();
@@ -402,6 +403,7 @@ class App {
   uint32_t currentReaderContentToken() const;
   String formatFocusTimerRemaining(uint32_t nowMs) const;
   String focusTimerCountsLabel() const;
+  String focusTimerDurationLabel() const;
   void playFocusTimerCompletionCue();
 
   AppState state_ = AppState::Booting;
@@ -457,6 +459,7 @@ class App {
   size_t focusTimerGenreSelectedIndex_ = 0;
   uint8_t brightnessLevelIndex_ = 4;
   uint8_t readerFontSizeIndex_ = 0;
+  uint16_t focusTimerMinutes_ = 20;
   uint16_t pacingLongWordDelayMs_ = 200;
   uint16_t pacingLongWordMultiplierPercent_ = 150;
   uint16_t pacingComplexWordDelayMs_ = 200;

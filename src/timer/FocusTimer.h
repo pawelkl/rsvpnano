@@ -33,6 +33,7 @@ class FocusTimer {
   bool begin();
   void open();
   void update(uint32_t nowMs);
+  void setWorkDurationMs(uint32_t durationMs);
   void chooseGenre(Genre genre, uint32_t nowMs);
   void cancelActiveTimer(uint32_t nowMs);
   void abandon();
@@ -105,6 +106,7 @@ class FocusTimer {
   uint32_t feedbackStartedMs_ = 0;
   uint32_t timerStartedMs_ = 0;
   uint32_t timerDurationMs_ = 0;
+  uint32_t workDurationMs_ = 20UL * 60UL * 1000UL;
   bool timerRunning_ = false;
   bool completionCuePending_ = false;
   uint8_t completedTouchBlocks_ = 0;

@@ -190,7 +190,8 @@ constexpr size_t kChapterPickerFallbackIndex = 1;
 constexpr size_t kWifiNetworksBackIndex = 0;
 constexpr size_t kWifiNetworksFirstItemIndex = 1;
 constexpr size_t kFocusTimerGenreBackIndex = 0;
-constexpr size_t kFocusTimerGenreFirstIndex = 1;
+constexpr size_t kFocusTimerDurationIndex = 1;
+constexpr size_t kFocusTimerGenreFirstIndex = 2;
 constexpr const char *kPrefsNamespace = "rsvp";
 constexpr const char *kPrefBookPath = "book";
 constexpr const char *kPrefLegacyWordIndex = "word";
@@ -231,6 +232,7 @@ constexpr const char *kPrefWifiSsid = "wifi_ssid";
 constexpr const char *kPrefWifiPass = "wifi_pass";
 constexpr const char *kPrefOtaAuto = "ota_auto";
 constexpr const char *kPrefOtaOwner = "ota_owner";
+constexpr const char *kPrefFocusTimerMinutes = "timer_min";
 constexpr size_t kReaderFontSizeCount = 3;
 constexpr size_t kPhantomBeforeCharTargets[] = {64, 96, 144};
 constexpr size_t kPhantomAfterCharTargets[] = {96, 144, 208};
@@ -248,6 +250,10 @@ constexpr uint16_t kSettingsWpmLowMax = 100;
 constexpr uint16_t kSettingsWpmLowStep = 10;
 constexpr uint16_t kSettingsWpmMax = 1000;
 constexpr uint16_t kSettingsWpmHighStep = 25;
+constexpr uint16_t kFocusTimerDefaultMinutes = 20;
+constexpr uint16_t kFocusTimerMinMinutes = 5;
+constexpr uint16_t kFocusTimerMaxMinutes = 120;
+constexpr uint16_t kFocusTimerStepMinutes = 5;
 constexpr int8_t kTypographyTrackingMin = -2;
 constexpr int8_t kTypographyTrackingMax = 3;
 constexpr uint8_t kTypographyAnchorMin = 30;
@@ -718,6 +724,9 @@ void App::begin() {
       loadPacingDelayMs(preferences_, kPrefPacingPunctuationMs, kPrefLegacyPacingPunctuation);
   joinLeadingHyphenWithNextWord_ =
       preferences_.getBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
+  focusTimerMinutes_ = static_cast<uint16_t>(clampIntSetting(
+      preferences_.getUShort(kPrefFocusTimerMinutes, kFocusTimerDefaultMinutes),
+      kFocusTimerMinMinutes, kFocusTimerMaxMinutes));
   accurateTimeEstimateEnabled_ = true;
   typographyConfig_ = defaultTypographyConfig();
   typographyConfig_.typeface = readerTypefaceFromSetting(
@@ -762,6 +771,7 @@ void App::begin() {
   touchInitialized_ = touch_.begin();
   audio_.begin();
   focusTimer_.begin();
+  applyFocusTimerDurationSetting();
 
 #if RSVP_USB_TRANSFER_ENABLED && RSVP_USB_TRANSFER_AUTO_START
   state_ = AppState::Booting;
@@ -1396,6 +1406,9 @@ void App::reloadRuntimePreferences(uint32_t nowMs, bool rerender) {
       loadPacingDelayMs(preferences_, kPrefPacingPunctuationMs, kPrefLegacyPacingPunctuation);
   joinLeadingHyphenWithNextWord_ =
       preferences_.getBool(kPrefJoinLeadingHyphen, joinLeadingHyphenWithNextWord_);
+  focusTimerMinutes_ = static_cast<uint16_t>(clampIntSetting(
+      preferences_.getUShort(kPrefFocusTimerMinutes, kFocusTimerDefaultMinutes),
+      kFocusTimerMinMinutes, kFocusTimerMaxMinutes));
   accurateTimeEstimateEnabled_ = true;
 
   typographyConfig_ = defaultTypographyConfig();
@@ -1423,6 +1436,7 @@ void App::reloadRuntimePreferences(uint32_t nowMs, bool rerender) {
   applyDisplayPreferences(nowMs, false);
   applyTypographySettings(nowMs, false);
   applyPacingSettings();
+  applyFocusTimerDurationSetting();
   if (rerender) {
     renderActiveReader(nowMs);
   }
@@ -2375,9 +2389,15 @@ void App::resetFocusTimer() {
   focusTimerGenreSelectedIndex_ = kFocusTimerGenreBackIndex;
 }
 
+void App::applyFocusTimerDurationSetting() {
+  focusTimer_.setWorkDurationMs(static_cast<uint32_t>(focusTimerMinutes_) * 60UL * 1000UL);
+  Serial.printf("[timer] work duration=%u min\n", static_cast<unsigned int>(focusTimerMinutes_));
+}
+
 void App::rebuildFocusTimerGenreMenuItems() {
   focusTimerGenreMenuItems_.clear();
   focusTimerGenreMenuItems_.push_back(uiText(UiText::Back));
+  focusTimerGenreMenuItems_.push_back("Timer: " + focusTimerDurationLabel());
   focusTimerGenreMenuItems_.push_back("Chores");
   focusTimerGenreMenuItems_.push_back("Work");
   focusTimerGenreMenuItems_.push_back("Fitness");
@@ -2402,21 +2422,32 @@ void App::selectFocusTimerGenre(uint32_t nowMs) {
     return;
   }
 
+  if (focusTimerGenreSelectedIndex_ == kFocusTimerDurationIndex) {
+    focusTimerMinutes_ = static_cast<uint16_t>(
+        nextCyclicSetting(focusTimerMinutes_, kFocusTimerMinMinutes,
+                          kFocusTimerMaxMinutes, kFocusTimerStepMinutes));
+    preferences_.putUShort(kPrefFocusTimerMinutes, focusTimerMinutes_);
+    applyFocusTimerDurationSetting();
+    rebuildFocusTimerGenreMenuItems();
+    renderFocusTimerGenres();
+    return;
+  }
+
   FocusTimer::Genre genre = FocusTimer::Genre::None;
   switch (focusTimerGenreSelectedIndex_) {
-    case 1:
+    case 2:
       genre = FocusTimer::Genre::Chores;
       break;
-    case 2:
+    case 3:
       genre = FocusTimer::Genre::RsvpNano;
       break;
-    case 3:
+    case 4:
       genre = FocusTimer::Genre::StrengthLabs;
       break;
-    case 4:
+    case 5:
       genre = FocusTimer::Genre::SelfCare;
       break;
-    case 5:
+    case 6:
       genre = FocusTimer::Genre::Other;
       break;
     default:
@@ -5845,6 +5876,8 @@ String App::focusTimerCountsLabel() const {
          String(focusTimer_.completedWorkBlocks()) + " B" +
          String(focusTimer_.completedBreakBlocks());
 }
+
+String App::focusTimerDurationLabel() const { return String(focusTimerMinutes_) + "m"; }
 
 void App::playFocusTimerCompletionCue() {
   if (audio_.beep()) {

@@ -26,8 +26,9 @@ constexpr uint32_t kTouchStartArmDelayMs = 350;
 constexpr uint32_t kPostTimerFlipGraceMs = 900;
 constexpr uint32_t kFeedbackMs = 900;
 constexpr uint32_t kTouchDurationMs = 2UL * 60UL * 1000UL;
-constexpr uint32_t kWorkDurationMs = 20UL * 60UL * 1000UL;
 constexpr uint32_t kBreakDurationMs = 5UL * 60UL * 1000UL;
+constexpr uint32_t kMinWorkDurationMs = 1UL * 60UL * 1000UL;
+constexpr uint32_t kMaxWorkDurationMs = 120UL * 60UL * 1000UL;
 
 constexpr float kSideAxisThreshold = 0.78f;
 constexpr float kCrossAxisLimit = 0.42f;
@@ -78,7 +79,7 @@ void FocusTimer::update(uint32_t nowMs) {
         break;
       }
       if (stableOrientation_ == oppositeShortSide(lastShortSide_)) {
-        startMode(TimerMode::Work, nowMs, kWorkDurationMs, stableOrientation_);
+        startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
         transitionTo(State::WorkRunning, nowMs);
       } else if (stableOrientation_ == OrientationState::LongSide) {
         startMode(TimerMode::Break, nowMs, kBreakDurationMs, OrientationState::LongSide);
@@ -99,7 +100,7 @@ void FocusTimer::update(uint32_t nowMs) {
         break;
       }
       if (stableOrientation_ == oppositeShortSide(lastShortSide_)) {
-        startMode(TimerMode::Work, nowMs, kWorkDurationMs, stableOrientation_);
+        startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
         transitionTo(State::WorkRunning, nowMs);
       } else if (stableOrientation_ == OrientationState::LongSide) {
         startMode(TimerMode::Break, nowMs, kBreakDurationMs, OrientationState::LongSide);
@@ -117,7 +118,7 @@ void FocusTimer::update(uint32_t nowMs) {
 
     case State::WaitAfterBreak:
       if (orientationInputArmed(nowMs) && isShortSide(stableOrientation_)) {
-        startMode(TimerMode::Work, nowMs, kWorkDurationMs, stableOrientation_);
+        startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
         transitionTo(State::WorkRunning, nowMs);
       }
       break;
@@ -148,6 +149,16 @@ void FocusTimer::chooseGenre(Genre genre, uint32_t nowMs) {
   genre_ = genre;
   resetOrientationStability();
   transitionTo(State::WaitForTouchStart, nowMs);
+}
+
+void FocusTimer::setWorkDurationMs(uint32_t durationMs) {
+  if (durationMs < kMinWorkDurationMs) {
+    durationMs = kMinWorkDurationMs;
+  }
+  if (durationMs > kMaxWorkDurationMs) {
+    durationMs = kMaxWorkDurationMs;
+  }
+  workDurationMs_ = durationMs;
 }
 
 void FocusTimer::cancelActiveTimer(uint32_t nowMs) {
