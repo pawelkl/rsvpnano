@@ -1304,9 +1304,14 @@ bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount
     return !reachedBookWordLimit(wordCount());
   };
 
+  auto pendingPrefixesNextWord = [&]() -> bool {
+    return pendingToken == "\"" || pendingToken == "'" ||
+           (joinLeadingHyphenWithNextWord &&
+            (pendingToken == "-" || pendingToken == "\"-" || pendingToken == "'-"));
+  };
+
   auto finishWordToken = [&](const String &token) -> bool {
-    if (pendingToken == "\"" || pendingToken == "'" ||
-        (joinLeadingHyphenWithNextWord && pendingToken == "-")) {
+    if (pendingPrefixesNextWord()) {
       pendingToken += token;
       return true;
     }
@@ -1341,7 +1346,14 @@ bool appendTokenizedLineWords(const String &line, PushToken pushToken, WordCount
     }
 
     if (isHyphenToken(token)) {
-      if (joinLeadingHyphenWithNextWord && pendingToken.isEmpty()) {
+      if (joinLeadingHyphenWithNextWord) {
+        if (pendingToken == "\"" || pendingToken == "'") {
+          pendingToken += "-";
+          return true;
+        }
+        if (!flushPending()) {
+          return false;
+        }
         pendingToken = "-";
         return true;
       }

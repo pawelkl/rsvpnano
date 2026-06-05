@@ -1188,8 +1188,13 @@ bool writeBodyLine(File &output, const String &line, size_t &wordCount, size_t m
     return ok;
   };
 
+  auto pendingPrefixesNextWord = [&]() -> bool {
+    return pendingToken == "\"" || pendingToken == "'" || pendingToken == "-" ||
+           pendingToken == "\"-" || pendingToken == "'-";
+  };
+
   auto finishWordToken = [&](const String &value) -> bool {
-    if (pendingToken == "\"" || pendingToken == "'") {
+    if (pendingPrefixesNextWord()) {
       pendingToken += value;
       return true;
     }
@@ -1224,7 +1229,15 @@ bool writeBodyLine(File &output, const String &line, size_t &wordCount, size_t m
     }
 
     if (isHyphenToken(value)) {
-      return flushPending() && writeToken("-");
+      if (pendingToken == "\"" || pendingToken == "'") {
+        pendingToken += "-";
+        return true;
+      }
+      if (!flushPending()) {
+        return false;
+      }
+      pendingToken = "-";
+      return true;
     }
 
     String first;

@@ -1438,10 +1438,24 @@ function iterCleanWords(text, mode) {
     return [];
   }
 
-  return cleaned
-    .split(/\s+/)
-    .filter((token) => token && /[\p{L}\p{N}]/u.test(token))
-    .flatMap(splitGluedWord);
+  const words = [];
+  let pendingDash = "";
+  for (const rawToken of cleaned.split(/\s+/)) {
+    const token = rawToken.replace(/[\u2010-\u2015\u2212]/g, "-");
+    if (/^-+$/.test(token)) {
+      pendingDash = "-";
+      continue;
+    }
+    if (!token || !/[\p{L}\p{N}]/u.test(token)) {
+      continue;
+    }
+
+    for (const word of splitGluedWord(token)) {
+      words.push(pendingDash ? `${pendingDash}${word}` : word);
+      pendingDash = "";
+    }
+  }
+  return words;
 }
 
 function splitGluedWord(token) {
