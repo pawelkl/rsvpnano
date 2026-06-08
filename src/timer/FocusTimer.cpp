@@ -25,7 +25,6 @@ constexpr uint32_t kOrientationStableMs = 700;
 constexpr uint32_t kTouchStartArmDelayMs = 350;
 constexpr uint32_t kPostTimerFlipGraceMs = 900;
 constexpr uint32_t kFeedbackMs = 900;
-constexpr uint32_t kTouchDurationMs = 2UL * 60UL * 1000UL;
 constexpr uint32_t kMinWorkDurationMs = 1UL * 60UL * 1000UL;
 constexpr uint32_t kMaxWorkDurationMs = 120UL * 60UL * 1000UL;
 constexpr uint32_t kMinBreakDurationMs = 1UL * 60UL * 1000UL;
@@ -64,8 +63,8 @@ void FocusTimer::update(uint32_t nowMs) {
 
     case State::WaitForTouchStart:
       if (orientationInputArmed(nowMs) && isShortSide(stableOrientation_)) {
-        startMode(TimerMode::Touch, nowMs, kTouchDurationMs, stableOrientation_);
-        transitionTo(State::TouchRunning, nowMs);
+        startMode(TimerMode::Work, nowMs, workDurationMs_, stableOrientation_);
+        transitionTo(State::WorkRunning, nowMs);
       }
       break;
 

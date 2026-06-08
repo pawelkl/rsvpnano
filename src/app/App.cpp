@@ -5544,7 +5544,7 @@ void App::renderFocusTimerSession() {
       renderFocusTimerGenres();
       return;
     case FocusTimer::State::WaitForTouchStart:
-      display_.renderFocusTimerScreen("BEGIN", FocusTimer::genreLabel(focusTimer_.genre()),
+      display_.renderFocusTimerScreen("WORK", FocusTimer::genreLabel(focusTimer_.genre()),
                                       workLabel, "Place on short side", countsLabel);
       return;
     case FocusTimer::State::TouchRunning:
